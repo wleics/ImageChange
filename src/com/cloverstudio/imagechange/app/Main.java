@@ -38,6 +38,9 @@ public class Main {
     // 标题标签
     private Label mLabel;
 
+    // 获取jar所在文件路径
+    private String mPath = "";
+
     public static void main(String[] args) {
         Main main = new Main();
         main.init();
@@ -48,16 +51,36 @@ public class Main {
      */
     private void init() {
 
-        // 获取jar所在文件路径
-        String path = getJarPath();
+        mPath = getJarPath();
 
+        Frame root = addRootView();
+        // 添加按钮
+        addButton(root);
+        // 添加提示label
+        addLabel(root);
+    }
+
+    private Frame addRootView() {
         Frame root = new Frame("图片转换");
         root.setSize(400, 200);
         root.setLocation(300, 200);
         root.setLayout(null);
         root.addWindowListener(new MyWin());
         root.setVisible(true);
-        // 添加按钮
+        return root;
+    }
+
+    private void addLabel(Frame root) {
+        Label infoLabel = new Label("解析路径：" + mPath, Label.CENTER);
+        infoLabel.setBounds(0, 90, 400, 30);
+        infoLabel.setForeground(Color.WHITE);
+        infoLabel.setBackground(new Color(22, 160, 93));
+        infoLabel.setFont(new java.awt.Font("MS Song", 1, 9));
+        root.add(infoLabel);
+        mLabel = infoLabel;
+    }
+
+    private void addButton(Frame root) {
         Button button = new Button("PNG转JPG");
         button.setBounds(10, 50, 380, 30);
         root.add(button);
@@ -65,53 +88,53 @@ public class Main {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                // 获取桌面上所有的png文件
-                List<File> files = CommonFileUtil.get().getFileList(path, SUFFIX_PNG, false);
-                System.out.println("共获取到文件：" + files.size() + "个");
-                for (File file : files) {
-                    changePng2Jpg(file);
-                }
-                mLabel.setText("转换完成！");
+
             }
 
-            /**
-             * 将png图片转换成jpg
-             * 
-             * @param file
-             */
-            private void changePng2Jpg(File file) {
-                BufferedImage bufferedImage;
-                try {
-                    String fileName = file.getName();
-                    if (fileName.contains(SUFFIX_PNG)) {
-                        fileName = fileName.split(SUFFIX_PNG)[0];
-                    }
-                    bufferedImage = ImageIO.read(file);
-                    BufferedImage newBufferedImage = new BufferedImage(bufferedImage.getWidth(),
-                            bufferedImage.getHeight(), BufferedImage.TYPE_INT_RGB);
-                    // 创建一个RBG图像，24位深度，成功将32位图转化成24位
-                    newBufferedImage
-                            .createGraphics()
-                            .drawImage(bufferedImage, 0, 0, Color.WHITE, null);
-                    ImageIO.write(
-                            newBufferedImage,
-                                FORMATNAME_JPG,
-                                new File(path + File.separator + fileName + SUFFIX_JPG));
-                    System.out.println("转换完成");
-                }
-                catch (IOException exception) {
-                    exception.printStackTrace();
-                }
-            }
         });
+    }
 
-        Label infoLabel = new Label("解析路径：" + path, Label.CENTER);
-        infoLabel.setBounds(0, 90, 400, 30);
-        infoLabel.setForeground(Color.WHITE);
-        infoLabel.setBackground(new Color(22, 160, 93));
-        infoLabel.setFont(new java.awt.Font("MS Song", 1, 9));
-        root.add(infoLabel);
-        mLabel = infoLabel;
+    ActionListener actionListener = new ActionListener() {
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            // 获取桌面上所有的png文件
+            List<File> files = CommonFileUtil.get().getFileList(mPath, SUFFIX_PNG, false);
+            System.out.println("共获取到文件：" + files.size() + "个");
+            for (File file : files) {
+                changePng2Jpg(file, mPath);
+            }
+            mLabel.setText("转换完成！");
+
+        }
+    };
+
+    /**
+     * 将png图片转换成jpg
+     * 
+     * @param file
+     */
+    private void changePng2Jpg(File file, String path) {
+        BufferedImage bufferedImage;
+        try {
+            String fileName = file.getName();
+            if (fileName.contains(SUFFIX_PNG)) {
+                fileName = fileName.split(SUFFIX_PNG)[0];
+            }
+            bufferedImage = ImageIO.read(file);
+            BufferedImage newBufferedImage = new BufferedImage(bufferedImage.getWidth(),
+                    bufferedImage.getHeight(), BufferedImage.TYPE_INT_RGB);
+            // 创建一个RBG图像，24位深度，成功将32位图转化成24位
+            newBufferedImage.createGraphics().drawImage(bufferedImage, 0, 0, Color.WHITE, null);
+            ImageIO.write(
+                    newBufferedImage,
+                        FORMATNAME_JPG,
+                        new File(path + File.separator + fileName + SUFFIX_JPG));
+            System.out.println("转换完成");
+        }
+        catch (IOException exception) {
+            exception.printStackTrace();
+        }
     }
 
     class MyWin extends WindowAdapter {
