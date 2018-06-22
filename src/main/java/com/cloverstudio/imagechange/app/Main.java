@@ -3,6 +3,10 @@ package com.cloverstudio.imagechange.app;
 
 import com.cloverstudio.imagechange.app.utils.CommonFileUtil;
 
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
+
 import java.awt.Button;
 import java.awt.Color;
 import java.awt.Frame;
@@ -50,7 +54,7 @@ public class Main {
      * 初始化
      */
     private void init() {
-
+        EventBus.getDefault().register(this);
         mPath = getJarPath();
 
         Frame root = addRootView();
@@ -84,27 +88,31 @@ public class Main {
         Button button = new Button("PNG转JPG");
         button.setBounds(10, 50, 380, 30);
         root.add(button);
-        button.addActionListener(new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent e) {
-
-            }
-
-        });
+        button.addActionListener(actionListener);
     }
 
     ActionListener actionListener = new ActionListener() {
 
         @Override
         public void actionPerformed(ActionEvent e) {
+
             // 获取桌面上所有的png文件
             List<File> files = CommonFileUtil.get().getFileList(mPath, SUFFIX_PNG, false);
-            System.out.println("共获取到文件：" + files.size() + "个");
-            for (File file : files) {
-                changePng2Jpg(file, mPath);
-            }
-            mLabel.setText("转换完成！");
+            // System.out.println("共获取到文件：" + files.size() + "个");
+            mLabel.setText("共获取到文件：" + files.size() + "个");
+            Thread thread = new Thread(new Runnable() {
+
+                @Override
+                public void run() {
+                    for (File file : files) {
+                        changePng2Jpg(file, mPath);
+                    }
+                    MessageEvent event = new MessageEvent();
+                    event.msg = "转换完成！";
+                    EventBus.getDefault().post(event);
+                }
+            });
+            thread.start();
 
         }
     };
@@ -130,7 +138,7 @@ public class Main {
                     newBufferedImage,
                         FORMATNAME_JPG,
                         new File(path + File.separator + fileName + SUFFIX_JPG));
-            System.out.println("转换完成");
+            // System.out.println("转换完成");
         }
         catch (IOException exception) {
             exception.printStackTrace();
@@ -141,6 +149,7 @@ public class Main {
 
         @Override
         public void windowClosing(WindowEvent e) {
+            EventBus.getDefault().unregister(this);
             System.exit(0);
         }
 
@@ -153,6 +162,11 @@ public class Main {
         }
 
     }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onMessageEvent(MessageEvent event) {
+        mLabel.setText(event.msg);
+    };
 
     /**
      * 获取jar包所在的路径
@@ -173,5 +187,9 @@ public class Main {
         // jar包所在目录
         path = path.substring(firstIndex, lastIndex);
         return path;
+    }
+
+    public static class MessageEvent {
+        String msg = "";
     }
 }
