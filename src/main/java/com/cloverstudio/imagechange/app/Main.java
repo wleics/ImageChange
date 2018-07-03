@@ -20,6 +20,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import javax.imageio.ImageIO;
 
@@ -45,6 +48,24 @@ public class Main {
     // 获取jar所在文件路径
     private String mPath = "";
 
+    // 按钮宽度
+    private static final int BTN_WIDTH = 380;
+
+    // 按钮高度
+    private static final int BTN_HEIGHT = 30;
+
+    // 位置
+    private static int Y = 50;
+
+    private static final int MAGIN_TOP = 10;
+
+    // 需要被删除的文件后缀
+    private static final String[] DEL_FILE_SUFFIX = {
+            ".jpg", ".png", ".mp4"
+    };
+
+    ExecutorService executorService = Executors.newFixedThreadPool(1);
+
     public static void main(String[] args) {
         Main main = new Main();
         main.init();
@@ -59,61 +80,136 @@ public class Main {
 
         Frame root = addRootView();
         // 添加按钮
-        addButton(root);
+        addPng2JpgButton(root);
+        // 添加删除文件的按钮
+        addDelFileButton(root);
         // 添加提示label
-        addLabel(root);
+        addProgressLabel(root);
+
+        root.setLocation(300, Y);
+        root.setVisible(true);
     }
 
+    /**
+     * 添加根视图
+     * 
+     * @return
+     */
     private Frame addRootView() {
         Frame root = new Frame("图片转换");
         root.setSize(400, 200);
         root.setLocation(300, 200);
         root.setLayout(null);
         root.addWindowListener(new MyWin());
-        root.setVisible(true);
         return root;
     }
 
-    private void addLabel(Frame root) {
+    /**
+     * 添加进度标签
+     * 
+     * @param root
+     */
+    private void addProgressLabel(Frame root) {
         Label infoLabel = new Label("解析路径：" + mPath, Label.CENTER);
-        infoLabel.setBounds(0, 90, 400, 30);
+        infoLabel.setBounds(0, Y, 400, 30);
         infoLabel.setForeground(Color.WHITE);
         infoLabel.setBackground(new Color(22, 160, 93));
         infoLabel.setFont(new java.awt.Font("MS Song", 1, 9));
         root.add(infoLabel);
         mLabel = infoLabel;
+        Y += BTN_HEIGHT + MAGIN_TOP;
     }
 
-    private void addButton(Frame root) {
+    /**
+     * 添加png转jpg图片的按钮
+     * 
+     * @param root
+     */
+    private void addPng2JpgButton(Frame root) {
         Button button = new Button("PNG转JPG");
-        button.setBounds(10, 50, 380, 30);
+        button.setBounds(10, Y, BTN_WIDTH, BTN_HEIGHT);
         root.add(button);
-        button.addActionListener(actionListener);
+        button.addActionListener(png2jpgActionListener);
+        Y += BTN_HEIGHT + MAGIN_TOP;
     }
 
-    ActionListener actionListener = new ActionListener() {
+    /**
+     * 添加删除文件按钮
+     * 
+     * @param root
+     */
+    private void addDelFileButton(Frame root) {
+        Button button = new Button("删除文件（不包含文件夹内容）");
+        button.setBounds(10, Y, BTN_WIDTH, BTN_HEIGHT);
+        root.add(button);
+        button.addActionListener(delFileActionListener());
+        Y += BTN_HEIGHT + MAGIN_TOP;
+    }
+
+    /**
+     * 删除文件的监听
+     * 
+     * @return
+     */
+    private ActionListener delFileActionListener() {
+        return new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                List<File> files = CommonFileUtil.get().getFileList(mPath, "", false);
+                mLabel.setText("共获取到文件：" + files.size() + "个");
+                Callable<String> task = new Callable<String>() {
+
+                    @Override
+                    public String call() throws Exception {
+                        int count = 0;
+                        for (File file : files) {
+                            for (String suffix : DEL_FILE_SUFFIX) {
+                                if (file.getName().contains(suffix)) {
+                                    boolean delete = file.delete();
+                                    if (delete) {
+                                        count++;
+                                    }
+                                }
+                            }
+                        }
+                        MessageEvent event = new MessageEvent();
+                        event.msg = "删除完成！共删除文件：" + count + "个";
+                        EventBus.getDefault().post(event);
+                        return "complete";
+                    }
+                };
+                executorService.submit(task);
+            }
+        };
+    }
+
+    /**
+     * png图片转jpg图片按钮监听
+     */
+    ActionListener png2jpgActionListener = new ActionListener() {
 
         @Override
         public void actionPerformed(ActionEvent e) {
 
             // 获取桌面上所有的png文件
             List<File> files = CommonFileUtil.get().getFileList(mPath, SUFFIX_PNG, false);
-            // System.out.println("共获取到文件：" + files.size() + "个");
             mLabel.setText("共获取到文件：" + files.size() + "个");
-            Thread thread = new Thread(new Runnable() {
+
+            Callable<String> task = new Callable<String>() {
 
                 @Override
-                public void run() {
+                public String call() throws Exception {
                     for (File file : files) {
                         changePng2Jpg(file, mPath);
                     }
                     MessageEvent event = new MessageEvent();
                     event.msg = "转换完成！";
                     EventBus.getDefault().post(event);
+                    return "complete";
                 }
-            });
-            thread.start();
-
+            };
+            executorService.submit(task);
         }
     };
 
@@ -138,7 +234,6 @@ public class Main {
                     newBufferedImage,
                         FORMATNAME_JPG,
                         new File(path + File.separator + fileName + SUFFIX_JPG));
-            // System.out.println("转换完成");
         }
         catch (IOException exception) {
             exception.printStackTrace();
